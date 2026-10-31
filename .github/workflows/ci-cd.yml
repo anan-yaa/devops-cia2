@@ -1,0 +1,124 @@
+name: CI/CD - Build, Test, Dockerize, Deploy to AKS
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+env:
+  IMAGE_NAME: cicd-demo
+
+jobs:
+  build-and-test:
+    name: Maven build & test
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout source code
+        uses: actions/checkout@v4
+
+      - name: Set up JDK 17
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "17"
+          cache: maven
+
+      - name: Compile, run unit tests, package JAR
+        run: mvn -B clean verify
+
+      - name: Upload test reports
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: test-reports
+          path: target/surefire-reports/
+
+      - name: Upload JAR
+        uses: actions/upload-artifact@v4
+        with:
+          name: app-jar
+          path: target/app.jar
+
+  docker:
+    name: Build & push Docker image
+    needs: build-and-test
+    runs-on: ubuntu-latest
+    outputs:
+      image: ${{ steps.meta.outputs.image }}
+      tag: ${{ steps.meta.outputs.tag }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Download JAR
+        uses: actions/download-artifact@v4
+        with:
+          name: app-jar
+          path: target/
+
+      - name: Compute image name and tag
+        id: meta
+        run: |
+          TAG=${GITHUB_SHA::7}
+          echo "tag=$TAG" >> "$GITHUB_OUTPUT"
+          echo "image=${{ vars.ACR_LOGIN_SERVER }}/${IMAGE_NAME}:$TAG" >> "$GITHUB_OUTPUT"
+
+      - name: Log in to Azure Container Registry
+        uses: docker/login-action@v3
+        with:
+          registry: ${{ vars.ACR_LOGIN_SERVER }}
+          username: ${{ secrets.ACR_USERNAME }}
+          password: ${{ secrets.ACR_PASSWORD }}
+
+      - name: Build and tag image
+        run: |
+          docker build \
+            -t ${{ steps.meta.outputs.image }} \
+            -t ${{ vars.ACR_LOGIN_SERVER }}/${IMAGE_NAME}:latest .
+
+      - name: Push image to ACR
+        run: docker push --all-tags ${{ vars.ACR_LOGIN_SERVER }}/${IMAGE_NAME}
+
+  deploy:
+    name: Deploy to AKS with Ansible
+    needs: docker
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install Ansible + Kubernetes collection
+        run: |
+          pip install ansible kubernetes
+          ansible-galaxy collection install kubernetes.core
+
+      - name: Set up kubectl
+        uses: azure/setup-kubectl@v4
+
+      - name: Configure cluster access
+        env:
+          KUBE_CONFIG: ${{ secrets.KUBE_CONFIG }}
+        run: |
+          mkdir -p ~/.kube
+          printf '%s' "$KUBE_CONFIG" > ~/.kube/config
+          chmod 600 ~/.kube/config
+          kubectl get nodes
+
+      - name: Deploy / update application (Ansible)
+        run: |
+          ansible-playbook -i ansible/inventory.ini ansible/deploy.yml \
+            -e image=${{ needs.docker.outputs.image }} \
+            -e tag=${{ needs.docker.outputs.tag }} \
+            -e acr_server=${{ vars.ACR_LOGIN_SERVER }} \
+            -e acr_username=${{ secrets.ACR_USERNAME }} \
+            -e acr_password=${{ secrets.ACR_PASSWORD }}
+
+      - name: Verify deployment status
+        run: |
+          kubectl -n cicd-demo get deployment,pods,svc -o wide
+          IP=$(kubectl -n cicd-demo get svc cicd-demo -o jsonpath='{.status.loadBalancer.ingress[0].ip}')
+          echo "### App deployed: http://$IP" >> "$GITHUB_STEP_SUMMARY"
+          curl -sf "http://$IP/api/info"

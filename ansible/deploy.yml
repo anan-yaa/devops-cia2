@@ -1,0 +1,93 @@
+---
+# Deploys / updates the app on AKS.
+# Required extra vars: image, tag, acr_server, acr_username, acr_password
+# Uses the cluster from $KUBECONFIG (or ~/.kube/config).
+#
+# Run locally:
+#   ansible-playbook -i ansible/inventory.ini ansible/deploy.yml \
+#     -e image=<acr>.azurecr.io/cicd-demo:<tag> -e tag=<tag> \
+#     -e acr_server=<acr>.azurecr.io -e acr_username=<user> -e acr_password=<pass>
+
+- name: Deploy cicd-demo to Kubernetes (AKS)
+  hosts: local
+  gather_facts: false
+
+  vars:
+    app_ns: cicd-demo
+    k8s_dir: "{{ playbook_dir }}/../k8s"
+
+  tasks:
+    - name: Ensure namespace exists
+      kubernetes.core.k8s:
+        state: present
+        src: "{{ k8s_dir }}/namespace.yaml"
+
+    - name: Create / update the registry pull secret
+      kubernetes.core.k8s:
+        state: present
+        definition:
+          apiVersion: v1
+          kind: Secret
+          type: kubernetes.io/dockerconfigjson
+          metadata:
+            name: acr-pull
+            namespace: "{{ app_ns }}"
+          data:
+            .dockerconfigjson: >-
+              {{ {'auths': {acr_server: {'username': acr_username,
+                                         'password': acr_password,
+                                         'auth': (acr_username ~ ':' ~ acr_password) | b64encode}}}
+                 | to_json | b64encode }}
+      no_log: true
+
+    - name: Apply Deployment with the new image
+      kubernetes.core.k8s:
+        state: present
+        apply: true
+        definition: >-
+          {{ lookup('file', k8s_dir ~ '/deployment.yaml')
+             | replace('__IMAGE__', image)
+             | replace('__TAG__', tag)
+             | from_yaml }}
+        wait: true
+        wait_condition:
+          type: Available
+          status: "True"
+        wait_timeout: 300
+
+    - name: Apply Service
+      kubernetes.core.k8s:
+        state: present
+        apply: true
+        src: "{{ k8s_dir }}/service.yaml"
+
+    - name: Wait for the rollout to finish
+      ansible.builtin.command: kubectl -n {{ app_ns }} rollout status deployment/cicd-demo --timeout=300s
+      changed_when: false
+
+    - name: Wait for the LoadBalancer public IP
+      kubernetes.core.k8s_info:
+        kind: Service
+        name: cicd-demo
+        namespace: "{{ app_ns }}"
+      register: svc
+      until: svc.resources[0].status.loadBalancer.ingress is defined
+      retries: 30
+      delay: 10
+
+    - name: Set app URL
+      ansible.builtin.set_fact:
+        app_url: "http://{{ svc.resources[0].status.loadBalancer.ingress[0].ip }}"
+
+    - name: Verify the app responds with the new version
+      ansible.builtin.uri:
+        url: "{{ app_url }}/api/info"
+        return_content: true
+      register: info
+      until: info.status == 200 and info.json.imageTag == tag
+      retries: 20
+      delay: 6
+
+    - name: Show result
+      ansible.builtin.debug:
+        msg: "App is live at {{ app_url }} -> {{ info.json }}"
