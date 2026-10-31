@@ -11,7 +11,7 @@ import java.util.Map;
 public class HomeController {
 
     // CHANGE THIS LINE for the redeployment demo (e.g. "v1" -> "v2")
-    static final String MESSAGE = "Hello from the CI/CD pipeline - v1";
+    static final String MESSAGE = "Hello from the CI/CD pipeline - v2 (auto-deployed!)";
 
     @Value("${IMAGE_TAG:local}")
     private String imageTag;
