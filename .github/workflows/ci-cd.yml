@@ -110,8 +110,8 @@ jobs:
       - name: Deploy / update application (Ansible)
         run: |
           ansible-playbook -i ansible/inventory.ini ansible/deploy.yml \
-            -e image=${{ needs.docker.outputs.image }} \
-            -e tag=${{ needs.docker.outputs.tag }} \
+            -e image=${{ vars.ACR_LOGIN_SERVER }}/${IMAGE_NAME}:${GITHUB_SHA::7} \
+            -e tag=${GITHUB_SHA::7} \
             -e acr_server=${{ vars.ACR_LOGIN_SERVER }} \
             -e acr_username=${{ secrets.ACR_USERNAME }} \
             -e acr_password=${{ secrets.ACR_PASSWORD }}
