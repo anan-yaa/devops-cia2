@@ -28,6 +28,7 @@ public class HomeController {
                   <p>Image tag (git commit): <b>%s</b></p>
                   <p>Served by pod: <b>%s</b></p>
                   <p>Pipeline: GitHub &rarr; Maven &rarr; Docker &rarr; Azure Container Registry &rarr; AKS (via Ansible)</p>
+                  <p><a href="/dashboard">Open Expense Tracker</a></p>
                 </body></html>
                 """.formatted(MESSAGE, imageTag, podName);
     }

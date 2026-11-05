@@ -33,6 +33,23 @@ Developer ── git push ──► GitHub ──► GitHub Actions
 | `k8s/` | Namespace, Deployment (2 replicas, probes, rolling update), LoadBalancer Service |
 | `ansible/deploy.yml`, `ansible/inventory.ini` | Deployment automation (pull secret, apply manifests, wait, verify) |
 
+## Expense Tracker (local storage)
+
+The Expense Tracker is a Java Spring MVC application with Thymeleaf pages and a JSON file-backed repository. It does not require PostgreSQL or another database.
+
+- Open `http://localhost:8080/dashboard` for the dashboard.
+- Open `http://localhost:8080/transactions` to view and filter transactions.
+- Add, edit, and delete transactions through the pages; the REST API remains available under `/api/transactions`.
+- Data is stored at `./data/transactions.json` by default. Set `EXPENSE_DATA_FILE` to choose another file location.
+
+Run locally with Java 17 and Maven:
+
+```bash
+mvn spring-boot:run
+```
+
+The file repository is intended for a single local application instance. The existing AKS Deployment has two replicas and no shared file volume, so those pods would keep separate copies of the data. Do not use that deployment for shared expense data without adding a shared storage design.
+
 ## Setup
 
 ### 1. Azure resources (run in WSL)

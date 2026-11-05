@@ -1,0 +1,31 @@
+<!doctype html>
+<html lang="en" xmlns:th="http://www.thymeleaf.org">
+<head>
+    <meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+    <title th:text="${editing ? 'Expense Tracker · Edit transaction' : 'Expense Tracker · Add transaction'}">Expense Tracker</title>
+    <link th:href="@{/webjars/bootstrap/5.3.8/css/bootstrap.min.css}" rel="stylesheet">
+    <style>body { background: #f5f7fb; } .brand-mark { color: #147d64; } .panel { border: 0; border-radius: 1rem; box-shadow: 0 8px 24px rgba(25, 38, 59, .06); }</style>
+</head>
+<body>
+<nav class="navbar bg-white border-bottom"><div class="container py-2">
+    <a class="navbar-brand fw-bold brand-mark" th:href="@{/dashboard}">Pocket Ledger</a>
+    <div class="d-flex gap-2"><a class="btn btn-sm btn-outline-secondary" th:href="@{/dashboard}">Dashboard</a><a class="btn btn-sm btn-outline-secondary" th:href="@{/transactions}">Transactions</a></div>
+</div></nav>
+<main class="container py-5" style="max-width: 760px">
+    <div class="mb-4"><p class="text-uppercase text-secondary small fw-semibold mb-1">Transaction</p><h1 class="h2 mb-0" th:text="${editing ? 'Edit transaction' : 'Add transaction'}">Add transaction</h1></div>
+    <section class="card panel"><div class="card-body p-4 p-md-5">
+        <form method="post" th:object="${transactionForm}" th:action="${formAction}">
+            <div class="alert alert-danger" th:if="${#fields.hasAnyErrors()}">Please correct the highlighted fields.</div>
+            <div class="row g-3">
+                <div class="col-md-6"><label class="form-label" for="amount">Amount</label><div class="input-group"><span class="input-group-text">¤</span><input class="form-control" id="amount" type="number" step="0.01" min="0.01" th:field="*{amount}" required></div><div class="invalid-feedback d-block" th:errors="*{amount}"></div></div>
+                <div class="col-md-6"><label class="form-label" for="type">Type</label><select class="form-select" id="type" th:field="*{type}" required><option value="">Choose type</option><option th:each="item : ${transactionTypes}" th:value="${item}" th:text="${item}"></option></select><div class="invalid-feedback d-block" th:errors="*{type}"></div></div>
+                <div class="col-md-6"><label class="form-label" for="category">Category</label><input class="form-control" id="category" type="text" maxlength="100" th:field="*{category}" placeholder="e.g. Food, Salary" required><div class="invalid-feedback d-block" th:errors="*{category}"></div></div>
+                <div class="col-md-6"><label class="form-label" for="date">Date</label><input class="form-control" id="date" type="date" th:field="*{date}" required><div class="invalid-feedback d-block" th:errors="*{date}"></div></div>
+                <div class="col-12"><label class="form-label" for="description">Description <span class="text-secondary">(optional)</span></label><textarea class="form-control" id="description" rows="3" maxlength="500" th:field="*{description}" placeholder="Add a note"></textarea><div class="invalid-feedback d-block" th:errors="*{description}"></div></div>
+            </div>
+            <div class="d-flex justify-content-end gap-2 mt-4"><a class="btn btn-outline-secondary" th:href="@{/transactions}">Cancel</a><button class="btn btn-success px-4" type="submit" th:text="${editing ? 'Save changes' : 'Add transaction'}">Add transaction</button></div>
+        </form>
+    </div></section>
+</main>
+</body>
+</html>

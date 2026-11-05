@@ -1,0 +1,74 @@
+<!doctype html>
+<html lang="en" xmlns:th="http://www.thymeleaf.org">
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Expense Tracker · Dashboard</title>
+    <link th:href="@{/webjars/bootstrap/5.3.8/css/bootstrap.min.css}" rel="stylesheet">
+    <style>
+        body { background: #f5f7fb; }
+        .brand-mark { color: #147d64; }
+        .summary-card { border: 0; border-radius: 1rem; box-shadow: 0 8px 24px rgba(25, 38, 59, .06); }
+        .amount { font-size: 1.8rem; font-weight: 700; letter-spacing: -.04em; }
+        .table > :not(caption) > * > * { padding: .9rem .75rem; }
+    </style>
+</head>
+<body>
+<nav class="navbar bg-white border-bottom">
+    <div class="container py-2">
+        <a class="navbar-brand fw-bold brand-mark" th:href="@{/dashboard}">Pocket Ledger</a>
+        <div class="d-flex gap-2">
+            <a class="btn btn-sm btn-outline-secondary" th:href="@{/transactions}">Transactions</a>
+            <a class="btn btn-sm btn-success" th:href="@{/transactions/new}">Add transaction</a>
+        </div>
+    </div>
+</nav>
+<main class="container py-5">
+    <div class="d-flex flex-wrap justify-content-between align-items-end gap-3 mb-4">
+        <div><p class="text-uppercase text-secondary small fw-semibold mb-1">Overview</p><h1 class="h2 mb-0">Your finances</h1></div>
+        <a class="btn btn-success px-4" th:href="@{/transactions/new}">＋ Add transaction</a>
+    </div>
+
+    <section class="row g-3 mb-5" aria-label="Financial summary">
+        <div class="col-md-4"><div class="card summary-card h-100"><div class="card-body p-4">
+            <div class="text-secondary">Total income</div>
+            <div class="amount text-success" th:text="${#numbers.formatDecimal(dashboard.totalIncome, 1, 'COMMA', 2, 'POINT')}">0.00</div>
+        </div></div></div>
+        <div class="col-md-4"><div class="card summary-card h-100"><div class="card-body p-4">
+            <div class="text-secondary">Total expenses</div>
+            <div class="amount text-danger" th:text="${#numbers.formatDecimal(dashboard.totalExpenses, 1, 'COMMA', 2, 'POINT')}">0.00</div>
+        </div></div></div>
+        <div class="col-md-4"><div class="card summary-card h-100"><div class="card-body p-4">
+            <div class="text-secondary">Current balance</div>
+            <div class="amount" th:classappend="${dashboard.currentBalance.signum() < 0} ? ' text-danger' : ' text-dark'"
+                 th:text="${#numbers.formatDecimal(dashboard.currentBalance, 1, 'COMMA', 2, 'POINT')}">0.00</div>
+        </div></div></div>
+    </section>
+
+    <section class="card summary-card">
+        <div class="card-header bg-white border-0 d-flex justify-content-between align-items-center px-4 pt-4">
+            <div><h2 class="h5 mb-1">Recent transactions</h2><p class="text-secondary small mb-0">Your latest five entries</p></div>
+            <a class="btn btn-sm btn-outline-success" th:href="@{/transactions}">View all</a>
+        </div>
+        <div class="card-body px-4">
+            <div class="table-responsive">
+                <table class="table align-middle mb-0">
+                    <thead><tr class="text-secondary small"><th>Date</th><th>Category</th><th>Description</th><th>Type</th><th class="text-end">Amount</th></tr></thead>
+                    <tbody>
+                    <tr th:each="transaction : ${dashboard.recentTransactions}">
+                        <td th:text="${#temporals.format(transaction.date, 'dd MMM yyyy')}">01 Jan 2026</td>
+                        <td class="fw-semibold" th:text="${transaction.category}">Category</td>
+                        <td class="text-secondary" th:text="${transaction.description ?: '—'}">Description</td>
+                        <td><span class="badge rounded-pill" th:classappend="${transaction.type.name() == 'INCOME'} ? ' text-bg-success' : ' text-bg-danger'" th:text="${transaction.type}">EXPENSE</span></td>
+                        <td class="text-end fw-semibold" th:classappend="${transaction.type.name() == 'INCOME'} ? ' text-success' : ' text-danger'"
+                            th:text="${(transaction.type.name() == 'INCOME' ? '+' : '−') + #numbers.formatDecimal(transaction.amount, 1, 'COMMA', 2, 'POINT')}">0.00</td>
+                    </tr>
+                    <tr th:if="${#lists.isEmpty(dashboard.recentTransactions)}"><td colspan="5" class="text-center text-secondary py-5">No transactions yet. Add one to get started.</td></tr>
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </section>
+</main>
+</body>
+</html>
