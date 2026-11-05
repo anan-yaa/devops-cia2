@@ -1,0 +1,3 @@
+# Use Gitleaks' built-in detection rules for common secrets.
+[extend]
+useDefault = true
